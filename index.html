@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator MPU</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-image: url('https://cdn.gamma.app/fhpleqvbjim2f32/generated-images/kEvgcBCrNkrudy2jQ1Bxe.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: -1;
+        }
+        .container {
+            background: #e3f2fd; /* Pastellblau */
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            max-width: 800px; /* Breiterer Container */
+            width: 90%;
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .question {
+            font-size: 2em;
+            font-weight: bold;
+            color: #000000; /* Überschrift wieder schwarz */
+            text-transform: uppercase;
+            margin-bottom: 25px;
+            animation: fadeIn 0.5s ease;
+        }
+        .question:hover {
+            transform: scale(1.02);
+            transition: transform 0.3s ease;
+        }
+        .answer {
+            background: linear-gradient(45deg, #4f46e5, #6d63ff);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            margin: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+            font-size: 1em;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        .answer:hover {
+            background: linear-gradient(45deg, #4338ca, #5a4ffa);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        .stats {
+            margin-top: 25px;
+            font-size: 1.2em;
+            color: #000000;
+            font-weight: bold;
+        }
+        .stats p {
+            margin: 10px 0;
+        }
+        .stats span {
+            color: #FF0000;
+            font-weight: bold;
+        }
+        #backButton, #restartButton {
+            background: #6c757d; /* Grauer Button für "Zurück" und "Spiel wiederholen" */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+            font-size: 1em;
+        }
+        #backButton:hover, #restartButton:hover {
+            background: #5a6268; /* Dunkleres Grau beim Hover */
+            transform: translateY(-2px);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .progress {
+            height: 100%;
+            background-color: #4f46e5;
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="question" class="question"></div>
+        <div id="answers"></div>
+        <div class="progress-bar">
+            <div class="progress" id="progress"></div>
+        </div>
+        <div id="navigation" style="margin-top: 20px;">
+            <button id="backButton" class="answer" style="display: none;">Înapoi</button>
+        </div>
+        <div class="stats">
+            <p>Încredere în sine: <span id="selbstbewusstsein">5</span></p>
+            <p>Credibilitate: <span id="glaubwuerdigkeit">5</span></p>
+            <p>Simpatie: <span id="sympathie">5</span></p>
+            <p>Scor: <span id="score">0</span></p>
+        </div>
+    </div>
+
+    <!-- Soundeffekte -->
+    <audio id="correctSound" src="correct.mp3"></audio>
+    <audio id="wrongSound" src="wrong.mp3"></audio>
+
+    <script>
+        const qa_data = [
+            {
+        "Frage": "De ce ai venit la MPU? De ce ești aici astăzi?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Motivul participării mele este că am condus sub influența alcoolului, nu am respectat legea, am provocat un accident, am fost egoist și am reprezentat un risc atât pentru mine, cât și pentru alții. Am realizat că am o problemă cu alcoolul, am abuzat de consumul acestuia și am luat decizia de a înceta să mai beau. Obiectivul meu astăzi este să demonstrez că m-am schimbat și că sunt acum capabil să conduc responsabil.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Sunt aici pentru a demonstra că sunt un șofer bun, deși am avut o mică problemă.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": -1 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Sunt aici pentru că m-a trimis bunica.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "De ce sunt autoritățile îngrijorate de capacitatea ta de a conduce? Ești de acord să vii la MPU?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Da, sunt de acord, pentru că am condus sub influența alcoolului și am provocat un accident! Acesta este un delict grav, care a pus în pericol viața mea și a altora!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Sunt de acord, deoarece autoritățile consideră că nu am înțeles legea corect.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Consider că MPU este complet inutilă.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Descrie ziua delictului din perspectiva ta, cu data și ora.",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "27.02.2023, luni, am avut un accident la ora 19:25. Am condus pe strada Nürnberger din Allersberg, din cauza consumului de alcool, am lovit mașina domnului Weinmann pe partea dreaptă a șoselei, au fost daune în valoare de aproximativ 13.000 de euro. Proba de sânge luată la ora 20:50 a relevat 2,02 promile. Consumul de alcool a început duminică, 26.02.2023, și a durat 29 de ore! Duminică, 26.02.2023, am sărbătorit ziua mea de naștere, care a început pe 24.02.2023. Am început să beau alcool de la ora 17:00 până la 02:00 noaptea. Au fost opt prieteni prezenți. Am băut 14 sticle de bere (0,5 litri), 7 litri de bere (5%) + 4 duble de shot de țuică (40 ml, 40%). Luni, 27.02.2023, am băut în pauze, două shot-uri scurte, și înainte de a merge acasă, două beri de 0,5 litri. Deci, în total, duminică și luni, am băut 8 litri de bere și cinci duble de shot.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Pe 27.02.2023, o luni, am avut un accident în noapte.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am fost deloc în apropierea locului accidentului în acea zi.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ai planificat să bei atât de mult în acea zi?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Nu, nu a fost planificat! Nu am avut control asupra consumului meu, acesta a scăpat de sub control în timpul petrecerii!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am planificat să beau câteva beri, dar a fost mai mult.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Da, am planificat un consum excesiv de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ai crezut că poți conduce? Nu ai simțit influența alcoolului?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Dimineața în ziua respectivă, m-am trezit la ora șase cu dureri de cap, deși inițial îmi doream să dorm mai mult. Cu toate acestea, am crezut că pot conduce și am mers la muncă. Această decizie a fost clar greșită, deoarece am condus sub influența alcoolului, ceea ce a fost ilegal și a dus la un accident. Acum înțeleg că siguranța în trafic trebuie să fie prioritatea principală. Aș fi trebuit să sun și să anunț că nu sunt capabil să lucrez. Îmi pare sincer rău pentru ceea ce s-a întâmplat. Atunci, am avut sentimentul că pot conduce în siguranță, dar din perspectiva de azi știu că nu a fost așa.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am crezut că sunt suficient de în formă pentru a conduce, deși am băut puțin.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am fost complet înțărcat când am condus.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce efecte are alcoolul asupra capacității de a conduce?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Reacții slabe, vedere îngustă. Mai concentrat pe sine, mai puțin concentrat. Distanțele nu pot fi estimate corect. De exemplu, cu mașinile care circulă în direcția opusă sau în fața mea. Periculos, deoarece nu ești asigurat. Dacă cauzezi un accident sub influența alcoolului.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Alcoolul poate afecta capacitatea de a conduce ușor.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Alcoolul îmbunătățește capacitatea de a conduce.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cât de des ai condus sub influența alcoolului, fără să fii prins, și ce concluzii tragi din asta?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Din păcate, am condus des sub influența alcoolului, fără să iau în considerare riscurile. Am condus de mai multe ori ca în ziua delictei, sau cu restul de alcool în sânge, da! A fost neresponsabil din partea mea. Îmi pare rău!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am condus de câteva ori sub influența alcoolului, dar nu prea des.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am condus niciodată sub influența alcoolului.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Gânduri, sentimente după delicte?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "În ziua următoare delictei, situația a fost jenantă, m-am simțit rușinat! Am fost lipsit de considerație și egoist. Am realizat greșelile mele și că aș fi putut răni pe cineva în trafic, mă bucur că nu am rănit pe nimeni! Înțeleg că am o problemă cu alcoolul și înțeleg pericolul pe care l-am reprezentat în trafic, mă bucur că nu am rănit pe nimeni!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "După delicte, m-am enervat puțin, pentru că mi-am pierdut permisul.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "M-am bucurat că am avut un accident.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cum te-ai adaptat după delicte cu alcoolul? Cine sau ce te-a motivat să îți schimbi comportamentul? Care a fost punctul de cotitură?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "După ce mi-am pierdut permisul de conducere, am fost șocat și nu știam ce să fac. În primele două-trei luni am continuat să beau, dar apoi din ce în ce mai puțin, până când pe 12.07.2022, ziua de naștere a fiicei mele, am băut ultima mea bere și mi-am luat angajamentul să renunț la alcool. Punctul de cotitură: Accidentul și delictele au fost un șoc pentru mine. Am ajuns la o conștientizare și am realizat că trebuie să îmi schimb comportamentul - pentru viitorul meu, pentru familie și pentru societate. Am realizat că am pus în pericol viața nevinovăților și că a fost momentul decisiv să îmi asum responsabilitatea și să pun capăt acestei obiceiuri periculoase. Familia mea a fost cea mai mare motivație pentru a menține această schimbare pe termen lung.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am băut puțin mai puțin după delicte, deoarece a fost un șoc pentru mine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "După delicte, am băut și mai mult, pentru că m-a afectat.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Din ce alte motive ai renunțat la alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Am realizat că nu am control asupra consumului meu și că face numai probleme în viață. Certuri și situații jenante! Neglijarea hobby-urilor! Am realizat că alcoolul afectează negativ sănătatea și bunăstarea mea.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am renunțat la alcool pentru că m-am certat cu soția.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am renunțat la alcool, ci doar pentru o perioadă scurtă.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "A fost ușor să renunți la alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Nu! Nu a fost ușor, deoarece era neobișnuit să nu mai beau așa cum făceam înainte. Nu au existat probleme fizice, dar gândurile la alcool au fost prezente la început, mai ales la zile de naștere și petreceri.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "A fost puțin dificil la început, dar apoi a devenit mai ușor.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Da, a fost foarte ușor să renunț la alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "De ce nu ai renunțat mai devreme la alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Nu m-am gândit niciodată că ar trebui să renunț la alcool, deoarece nu m-am preocupat de sănătatea mea. Am crezut că alcoolul mă ajută să mă descurc cu stresul și să facilitez relațiile sociale. Consumul de alcool era considerat normal la petreceri, și nu am luat în considerare consecințele negative pentru corpul meu.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "M-am gândit să renunț la alcool, dar nu am făcut-o.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu m-am gândit niciodată să renunț la alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cât și cât de des ai băut? Trecut:",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Între 20 și 36 de ani, m-am căsătorit la 28 de ani și am trăit în România. În această perioadă, am băut 3-4 beri de 0,5 litri și un dublu de shot de două ori pe lună, de obicei în weekend, la ocazii speciale sau la restaurant. Între 36 și 40 de ani, când am venit în Germania, comportamentul meu de a bea alcool s-a schimbat negativ. Am început să beau regulat și cantitatea de alcool a crescut. După muncă, de obicei vinerea, am băut 2-3 beri cu colegii mei. În weekend, ajungeam la 5-6, 7-8, 10-12 beri, uneori și țuică. Cantități maxime: De trei ori pe an, am băut 16 beri + 5 duble de shot, deci aproximativ de patru ori pe an.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am băut aproximativ 10 beri pe săptămână.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am băut doar ocazional o bere.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "De ce ai băut? Cauze?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Cauza a fost în trecutul meu și în gândirea mea. În România, părinții mei erau ocupați cu noi. Deși aveau timp pentru noi, uneori m-am simțit neglijat. Când am venit în Germania în 2019, la 36 de ani, a fost o perioadă grea: Eram nefericit, despărțirea de soția mea, copiii și părinții m-a afectat, și m-am simțit singur și pierdut. Am început să beau alcool regulat, chiar și singur. Alcoolul m-a ajutat să reduc stresul și să uit de probleme. La noul loc de muncă, am găsit prieteni români și am început să beau cu ei, deoarece m-am simțit acceptat în grupul lor. Pentru a fi acceptat, am încercat să plac tuturor, să ajut pe alții și nu am știut să spun nu. Aveam frică de respingere și nu vorbeam cu nimeni despre problemele mele. În cele din urmă, am pierdut controlul asupra consumului meu de alcool.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am băut pentru că am avut mulți prieteni noi în Germania.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am băut pentru că mi-a fost sete.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cum te-ai descurcat cu stresul în trecut?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "În trecut, în România, vorbeam cu familia și partenera mea despre problemele mele.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "În trecut, am încercat să evit stresul.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "În trecut, am rezolvat problemele mele cu alcoolul.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce funcție a avut consumul în perioada în care ai băut excesiv?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Am băut alcool pentru a reduce stresul. Consumul m-a ajutat să uit de probleme, cum ar fi despărțirea de familia mea și provocările vieții mele noi. Am vrut să fiu acceptat și așteptat. Noua viață era foarte grea pentru mine, și alcoolul părea o soluție pe termen scurt.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Consumul de alcool a fost o modalitate de a mă simți mai bine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am băut alcool doar pentru că era distractiv.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cum te descurci cu stresul în prezent? Cum ai redus stresul?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Deschidere: Vorbesc deschis și sincer despre problemele mele. Ajutor: Caut ajutor atunci când este nevoie, fie de la familie, prieteni sau de la profesioniști. Setarea limitelor: Exprimă clar limitele tale personale și spune cu încredere nu, fără sentimente de vinovăție. Strategii sănătoase: Folosește metode sănătoase pentru gestionarea stresului, cum ar fi sportul, exerciții de respirație și plimbări în natură. Concentrare pe pozitiv: Concentrează-te pe activitățile care îți aduc bucurie și relaxare.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Încerc să evit stresul, când mă simt stresat.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Când am stres, beau o bere.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce argumente contra sprijină ideea că nu ai fost dependent de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Fără simptome de sevraj: Nu am avut probleme fizice. Renunțare fără ajutor: Am renunțat la băutură fără ajutor extern. Consum moderat: Nu am băut cantități mari în timpul săptămânii și nu am băut dimineața. Fiabilitate: Am respectat întotdeauna termenele profesionale și private. Fără tratament medical: Nu am fost niciodată în spital și nu am făcut terapie.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Nu am avut simptome de sefraj, pentru că am băut doar ocazional.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am fost dependent de alcool, asta este problema!",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce s-a schimbat în viața ta, de când nu mai bei?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Totul a devenit mai pozitiv, am o viață nouă ca rezultat al renunțării la alcool: Mă simt mai bine, am mai multă energie. Relația cu partenera mea este mai bună, vorbesc deschis cu ea despre problemele care apar. La locul de muncă, sunt mai productiv și energic, am colegi noi care nu beau alcool. Am reînviat hobby-urile mele vechi. Fac din nou mai mult sport, ciclism, plimbări cu partenera mea și fiicele mele în natură. Timpul pe care îl petreceam în weekenduri cu consumul de alcool l-am înlocuit cu hobby-uri și activități familiale, deci am petrecut mai mult timp cu familia mea.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Viața mea este puțin mai bună, de când beau mai puțin.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "De când nu mai beau, viața mea a devenit mai rea.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Care sunt situațiile de risc?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Situațiile de risc includ crizele de viață, cum ar fi moartea unui îndrăgit, boala gravă sau pierderea locului de muncă. În astfel de momente, mă bazez pe sprijinul familiei și al prietenilor apropiați și caut ajutor emoțional sau profesional, dacă este nevoie. Nu folosesc alcoolul ca mijloc de consolare, ci mă concentrez pe soluții sănătoase, precum activitatea fizică, meditația sau discuțiile cu persoane de încredere. Alte situații includ reîntâlnirea cu vechii prieteni care oferă alcool, unde resping politicos și spun: „Nu, mulțumesc, nu beau alcool. Prefer o cola sau altă băutură fără alcool.“ În cazul presiunii sociale, sunt hotărât și gata să plec dacă situația devine inconfortabilă. La petreceri sau aniversări, explic clar că nu mai beau alcool din cauza problemelor din trecut și aleg băuturi fără alcool. În trecut, foloseam alcoolul când mă simțeam singur sau plictisit. Acum am o rutină diferită: mă implic în hobby-uri noi, fac sport sau petrec timp cu familia. La locul de muncă, în momentele de stres, evit alcoolul și aleg metode sănătoase precum pauze, plimbări sau tehnici de respirație. De asemenea, sunt sincer de la început în fața grupurilor noi de prieteni: „Nu beau alcool, am luat această decizie pentru mine“, astfel evitând presiunea viitoare.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Situațiile de risc sunt încă dificile pentru mine, dar încerc să le gestionez.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu există situații de risc pentru mine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Unde vezi riscul unui recidive, să comiți din nou același delict? De ce este riscul unui recidive minim?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "În viitor, vreau să respect legea, pentru că nu vreau să pun în pericol viața nimănui. Desigur, nimeni nu poate fi sigur 100%. Riscul este minim, deoarece: Vorbește astăzi cu alții, cum ar fi partenera și familia mea, care mă sprijină, despre problemele mele. Am un nou loc de muncă, noi prieteni și mai mult timp pentru hobby-uri. Nu mă mai arăt mereu puternic și îmi permit să fiu și slab. Am învățat să spun nu și nu mai fac totul pentru a plăcea tuturor. Cunosc situațiile de risc, sunt conștient de dorința mea de acceptare și așteptare și cunosc cauzele consumului meu.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Există un risc mic, dar sunt încrezător că nu se va întâmpla.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Voi beau din nou atât de mult ca în trecut.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Plan de urgență (o listă) după un recidiv (dacă beau din nou!)?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Numărul consultantului MPU, disponibil în orice moment! O listă: Ce se întâmplă dacă continui să bei: datorii, despărțire, pierderea locului de muncă, boală etc.! Pericolul de a pierde tot ce am realizat până acum! Sănătate, prieteni, sport, bani, hobby-uri!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am un plan, dar nu îmi voi aminti de el.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am un plan de urgență.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce ai învățat în timpul pregătirii pentru MPU?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "În timpul pregătirii pentru MPU, am învățat mult despre delictele mele și mi-am analizat greșelile. Am realizat că am fost egoist, nu am respectat legea și am condus sub influența alcoolului, punând în pericol atât viața mea, cât și a altora. Cunosc acum cauzele consumului meu de alcool, cum ar fi dorința mea de a fi acceptat și de a aparține unui grup. Am învățat că alcoolul este o otravă pentru nervi și celule, având efecte grave asupra sănătății, și că poate duce la dependență, deoarece la fiecare consum excesiv, celulele creierului sunt afectate. Consumul regulat dăunează memoriei și poate duce la scăderea inteligenței. Termeni precum „dependența de memorie” (când creierul își amintește valorile maxime) și „creșterea toleranței” (nevoia de a consuma mai mult alcool pentru același efect) îmi sunt acum clare. Cunosc riscurile consumului excesiv de alcool și înțeleg că riscul de a comite din nou un delict similar nu poate fi exclus complet. Prin analiza avantajelor și dezavantajelor, mă simt pregătit pentru viitor.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am învățat puțin despre alcool în timpul pregătirii pentru MPU.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Pregătirea pentru MPU nu mi-a adus nimic.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Vrei să-ți recuperezi permisul de conducere?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Cred că ar fi frumos dacă mi-aș putea recupera permisul meu de conducere. Mai important este însă că mi-am schimbat comportamentul, nu mai vreau să fiu un risc pentru nimeni când particip la trafic. Pentru că nu mai vreau să pun în pericol viața mea.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Vreau să-mi recuperez permisul de conducere, deoarece îmi place să conduc mașina.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu mai vreau să-mi recuperez permisul de conducere.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ai ceva de adăugat pentru a încheia?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Cred că retragerea permisului de conducere nu este atât de rea, deoarece este o experiență de învățare pentru mine. Dacă nu mi s-ar fi întâmplat, nu aș fi schimbat nimic în viața mea. Sunt recunoscător pentru asta!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Sunt recunoscător pentru experiența de învățare, dar pedeapsa este prea mare.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu, nu am nimic de adăugat.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Când ai avut prima dată contact cu alcoolul și când ai băut pentru prima dată?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "La 14 ani am băut pentru prima dată o bere. Nu mi-a plăcut deloc atunci!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am avut contact cu alcoolul încă din copilărie.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am băut pentru prima dată alcool la 20 de ani.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Care au fost aspectele pozitive ale consumului de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "În primul rând, a fost plăcut. M-am simțit relaxat și vesel. Un alt aspect pozitiv a fost că m-am simțit bine în societatea prietenilor, devenind mai comunicativ și deschis. Alcoolul avea uneori și o funcție distractive și ridica moralul.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "M-am simțit doar mai bine când am băut alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Consumul de alcool nu a avut niciun aspect pozitiv pentru mine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Care au fost aspectele negative ale consumului de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "A doua zi aveam dureri de cap, greață, oboseală și slăbiciune. Eram obosit, neîncrezător și o persoană complet diferită!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "A doua zi aveam dureri de cap și eram puțin obosit.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu au existat aspecte negative pentru mine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cu puțin și cu mult alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Cu puțin alcool, adică o sau două beri, m-am simțit relaxat și vesel, a doua zi nu aveam probleme. Cu mult alcool, de exemplu 5-6 beri, a doua zi aveam dureri de cap, greață și oboseală extremă. Nu puteam continua activitățile mele normale.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Cu puțin alcool nu aveam probleme, cu mult alcool eram doar puțin obosit.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Cu puțin sau mult alcool m-am simțit întotdeauna bine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Unde și cu cine ai băut în principal?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Am băut alcool în principal în societatea prietenilor și colegilor. De obicei, miercuri și joi seara, după muncă, mergeam pentru o bere la o bar. De asemenea, beau la petreceri, nunți sau evenimente importante împreună cu cunoscuți. Astfel, momentele de relaxare în grup cu alcool au fost legate. În trecut, am băut pentru a fi acceptat în grupul de prieteni, la fel ca ei.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am băut alcool în principal în baruri și discoteci.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am băut întotdeauna doar singur alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ai fost vreodată abordat cu privire la consumul tău de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Da, din mai multe părți (mama și prietena). Beau prea mult. Dar am considerat consumul meu normal. Am ignorat totul. Au existat și conflicte din cauza alcoolului. De când am încetat să beau, totul s-a îmbunătățit. Înțeleg mai bine partenera mea. De asemenea, sunt mult mai productiv la locul de muncă.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Uneori am fost abordat cu privire la consumul meu de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nimeni nu m-a abordat niciodată cu privire la consumul meu de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Au existat probleme cu prietena sau la locul de muncă din cauza consumului de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Desigur, ne certam des despre consumul de alcool, la locul de muncă luni fără energie, obosit, da, aveam probleme să mă concentrez la locul de muncă!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Uneori au existat probleme din cauza consumului de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am avut niciodată probleme din cauza consumului de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Te-ai simțit vreodată vinovat din cauza consumului de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Da, mai ales după dureri de cap a doua zi. Sentimentele de vinovăție au dispărut însă repede, și nu am făcut nimic, deși știam că ar trebui să schimb ceva.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Uneori am simțit vinovăție, dar a dispărut repede.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am simțit niciodată vinovăție din cauza consumului de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cum îți evaluezi consumul, ai pierdut vreodată controlul asupra cantităților băute?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Am avut probleme cu alcoolul și am pierdut de mai multe ori controlul asupra cantităților. Așa ceva s-a întâmplat aproximativ de patru ori pe an, mai ales cu țuică, care m-a scos repede din sărite. Nu știam atunci când să mă opresc.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Uneori am pierdut controlul asupra cantității, dar a fost rar.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am avut întotdeauna controlul asupra consumului meu de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Au apărut vreodată lacune în memoria ta din cauza consumului excesiv de alcool?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Da, au existat lacune în memorie, când am uitat părți din noapte. Acesta a fost un semnal clar că am depășit limita sigură și că alcoolul afectează memoria mea.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am avut câteva lacune în memorie după consumul de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am avut niciodată lacune în memorie din cauza alcoolului.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ai avut pauze de alcool sau încercări de abstinență?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Nu, nu am avut pauze de alcool și niciodată nu am încercat să fiu abstinent. Deși am realizat că nu controlez situația, nu am luat măsuri concrete. Am uitat problemele prea repede și nu am realizat că abuzam deja de alcool.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Uneori am încercat să fac pauze de alcool, dar nu am reușit.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am făcut întotdeauna pauze de alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "În ce categorie de băutori te vezi astăzi, privind în urmă? Cum ți-ai evaluat comportamentul de băut până la delicte?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Astăzi mă văd în abuz: Cantitățile de alcool erau mari și problematice. Scală: 1 - 10 (sub medie, medie, abuz, dependent). Evaluarea mea: 8.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Am fost un băutor mediu, aș spune.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "M-aș identifica ca un băutor sub medie.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Bei alcool în prezent? Dacă da, ce, cât și cât de des? Bei bere fără alcool? Te poți imagina să bei în viitor una sau două beri?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Sunt abstinent de peste un an. Nu! Nu beau bere fără alcool. Concentrează-te pe ceea ce mănânci și dacă există alcool în băuturi, alimente sau medicamente. La medicamente întreb întotdeauna despre alternative fără alcool. Știu că nu s-ar opri la o bere, deoarece am probleme cu alcoolul.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Nu mai beau bere cu alcool, doar ocazional o bere fără alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Beau din nou regulat alcool.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce contact ai în prezent cu grupul de prieteni cu care ai băut?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Nu mai am contact cu grupul meu de prieteni de altădată. Când am exprimat dorința de a nu mai bea, unii dintre prietenii mei nu m-au înțeles sau acceptat. Majoritatea întâlnirilor au avut loc în locuri unde se bea alcool. Acum evit astfel de evenimente sau localuri. În cercul meu de prieteni actual, consumul intens de alcool nu este acceptabil.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Încă am contact cu grupul meu de prieteni de altădată, dar nu mai beau cu ei.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Merg încă cu același grup de prieteni să beau.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ai fost un șofer sigur?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Nu, nu am fost un șofer sigur, deoarece am acționat egoist și neglijent. Am luat riscuri fără să mă gândesc la consecințe. Acum înțeleg că conducerea sigură înseamnă să respecți regulile, să conduci prevăzător și să îți asumi responsabilitatea.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "De obicei, am fost un șofer sigur, doar uneori nu.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am fost întotdeauna un șofer sigur.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cum evaluezi faptul că nu ai avut niciodată un accident mai mare până la accident?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "A fost doar noroc, deoarece am încălcat atât de des legea și totuși nu am provocat un accident. Am luat riscuri fără să mă gândesc la consecințe. Acum știu că norocul singur nu este suficient și că trebuie să conduc responsabil pentru a asigura siguranța.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "A fost noroc că nu am avut niciun accident până la accident.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu am avut niciun accident, deoarece am condus întotdeauna bine.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "De ce există atât de multe reguli și legi?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Avem nevoie de reguli pentru că ne protejează. Am înțeles că, dacă respect regulile, trăiesc sigur și în pace. Fără reguli, ar exista doar haos.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Există atât de multe reguli pentru a face totul mai greu.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Regulile și legile sunt inutile.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Cum te vezi ca șofer în trecut?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Am fost un șofer egoist și neglijent. M-am gândit doar la mine și nu la consecințe. Îmi pare rău!",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Nu am fost un șofer bun în trecut.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Am fost un șofer bun în trecut.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Ce este, în opinia ta, un șofer bun, normal?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Un șofer bun este cineva care respectă regulile. El este atent, gândește la alții și nu reprezintă o pericol în trafic.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Un șofer bun este cineva care conduce cu grijă.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Un șofer bun este cineva care conduce repede.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Câți oameni trebuie să meargă anual la MPU?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Aproximativ 90.000 de oameni în anul 2019. Motive: Alcool (40%), Droguri și medicamente (30%), Puncte (18%) și Restul (12%).",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Aproximativ 100.000 de oameni trebuie să meargă anual la MPU.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Doar foarte puțini oameni trebuie să meargă anual la MPU.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    },
+    {
+        "Frage": "Când ai spus pentru ultima dată nu?",
+        "Antworten": [
+            {
+                "Typ": "corect",
+                "Text": "Acum spun și în situații sociale înțelept nu, de exemplu când se oferă alcool sau apare presiune. A fost inițial dificil pentru mine, dar acum știu că numai așa pot menține abstinența mea. De asemenea, am refuzat unui prieten, care s-a mutat pentru a cincea oară în doi ani și avea din nou nevoie de oameni pentru a transporta cutii.",
+                "efect": { "Încredere în sine": 1, "Credibilitate": 2, "Simpatie": 1 }
+            },
+            {
+                "Typ": "greșit_asemănător",
+                "Text": "Acum spun mai des nu decât înainte.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -1, "Simpatie": 0 }
+            },
+            {
+                "Typ": "greșit_total",
+                "Text": "Nu spun niciodată nu.",
+                "efect": { "Încredere în sine": 0, "Credibilitate": -2, "Simpatie": -2 }
+            }
+        ]
+    }
+        ];
+
+        let indexIntrebareCurenta = 0;
+        let incredereInSine = 5;
+        let credibilitate = 5;
+        let simpatie = 5;
+        let scor = 0;
+
+        function afiseazaIntrebarea() {
+            const intrebareCurenta = qa_data[indexIntrebareCurenta];
+            document.getElementById('question').textContent = intrebareCurenta.Frage;
+            const raspunsuriDiv = document.getElementById('answers');
+            raspunsuriDiv.innerHTML = '';
+            intrebareCurenta.Antworten.forEach((raspuns, index) => {
+                const buton = document.createElement('button');
+                buton.className = 'answer';
+                buton.textContent = raspuns.Text;
+                buton.title = "Faceți clic pentru a selecta acest răspuns"; // Tooltip
+                buton.addEventListener('click', () => gestioneazaRaspunsul(index));
+                raspunsuriDiv.appendChild(buton);
+            });
+
+            // Actualizează bara de progres
+            const progress = (indexIntrebareCurenta / qa_data.length) * 100;
+            document.getElementById('progress').style.width = `${progress}%`;
+
+            // Afișează butonul "Înapoi" dacă există o întrebare anterioară
+            if (indexIntrebareCurenta > 0) {
+                document.getElementById('backButton').style.display = 'inline-block';
+            } else {
+                document.getElementById('backButton').style.display = 'none';
+            }
+        }
+
+        function gestioneazaRaspunsul(indexRaspuns) {
+            const intrebareCurenta = qa_data[indexIntrebareCurenta];
+            const raspunsSelectat = intrebareCurenta.Antworten[indexRaspuns];
+
+            // Redă efectele sonore
+            if (raspunsSelectat.Typ === "corect") {
+                document.getElementById('correctSound').play();
+            } else {
+                document.getElementById('wrongSound').play();
+            }
+
+            // Aplică efectele
+            incredereInSine += raspunsSelectat.efect["Încredere în sine"];
+            credibilitate += raspunsSelectat.efect["Credibilitate"];
+            simpatie += raspunsSelectat.efect["Simpatie"];
+            scor += raspunsSelectat.efect["Credibilitate"] * 10;
+
+            // Actualizează statisticile
+            document.getElementById('selbstbewusstsein').textContent = incredereInSine;
+            document.getElementById('glaubwuerdigkeit').textContent = credibilitate;
+            document.getElementById('sympathie').textContent = simpatie;
+            document.getElementById('score').textContent = scor;
+
+            // Trece la următoarea întrebare
+            indexIntrebareCurenta++;
+            if (indexIntrebareCurenta < qa_data.length) {
+                afiseazaIntrebarea();
+            } else {
+                finalizeazaJocul();
+            }
+        }
+
+        function finalizeazaJocul() {
+            const intrebareDiv = document.getElementById('question');
+            intrebareDiv.textContent = "--- Jocul s-a terminat! ---";
+            const raspunsuriDiv = document.getElementById('answers');
+            raspunsuriDiv.innerHTML = `<p>Scorul tău final: ${scor}</p>`;
+            if (credibilitate >= 8) {
+                raspunsuriDiv.innerHTML += "<p>Ai fost convingător și sincer. Ai șanse mari să treci MPU!</p>";
+            } else if (credibilitate >= 5) {
+                raspunsuriDiv.innerHTML += "<p>Ai fost relativ credibil, dar mai ai de lucrat la convingere.</p>";
+            } else {
+                raspunsuriDiv.innerHTML += "<p>Nu ai fost convingător. Este posibil să ai dificultăți la MPU.</p>";
+            }
+
+            // Adaugă butonul "Joacă din nou"
+            const restartButton = document.createElement('button');
+            restartButton.id = 'restartButton';
+            restartButton.textContent = 'Joacă din nou';
+            restartButton.addEventListener('click', () => restartGame());
+            raspunsuriDiv.appendChild(restartButton);
+        }
+
+        function restartGame() {
+            indexIntrebareCurenta = 0;
+            incredereInSine = 5;
+            credibilitate = 5;
+            simpatie = 5;
+            scor = 0;
+            afiseazaIntrebarea();
+            document.getElementById('selbstbewusstsein').textContent = incredereInSine;
+            document.getElementById('glaubwuerdigkeit').textContent = credibilitate;
+            document.getElementById('sympathie').textContent = simpatie;
+            document.getElementById('score').textContent = scor;
+        }
+
+        // Ascultător de evenimente pentru butonul "Înapoi"
+        document.getElementById('backButton').addEventListener('click', () => {
+            if (indexIntrebareCurenta > 0) {
+                indexIntrebareCurenta--;
+                afiseazaIntrebarea();
+            }
+        });
+
+        // Începe jocul
+        afiseazaIntrebarea();
+    </script>
+</body>
+</html>
